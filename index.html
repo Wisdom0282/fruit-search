@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Case study: an accessible predictive search box built with vanilla JavaScript.">
+<title>Fruit Search: a case study in small, careful UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="bar">
+    <strong style="font-family:var(--display)">Your Name</strong>
+    <nav aria-label="Primary">
+      <a href="#story">Story</a>
+      <a href="#code">Code</a>
+      <a href="#next">Next</a>
+      <button class="theme-btn" id="theme" type="button" aria-label="Toggle color theme">Theme</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="title">
+      <h1 id="title">Search that answers while you type.</h1>
+      <p class="lede">
+        A predictive fruit search built from scratch in vanilla JavaScript. No framework, no libraries,
+        and it works with a keyboard and a screen reader. Try it first, then read how it’s built.
+      </p>
+
+      <div class="demo">
+        <label for="fruit">Search for a fruit</label>
+        <div class="field">
+          <input id="fruit" type="text" autocomplete="off" spellcheck="false"
+                 role="combobox" aria-expanded="false" aria-controls="results"
+                 aria-autocomplete="list" placeholder="Try “ber” or “an”">
+          <ul id="results" class="suggestions" role="listbox" aria-label="Fruit suggestions" hidden></ul>
+        </div>
+        <p class="picked" id="picked" aria-live="polite"></p>
+        <p class="demo-note">Use ↑ ↓ to move, Enter to choose, Esc to close.</p>
+        <p class="sr-only" id="status" role="status"></p>
+      </div>
+    </section>
+
+    <section class="story" id="story" aria-labelledby="story-h">
+      <div class="story-grid">
+        <h2 id="story-h">The story</h2>
+        <div>
+          <h3>The brief</h3>
+          <p>
+            Build a small search app that suggests fruit as the user types. The assignment was to
+            practice DOM manipulation, array methods and ES2015 features. I treated it as a chance to
+            build something small and make it feel finished.
+          </p>
+
+          <h3>The problem</h3>
+          <p>
+            Autocomplete looks easy until you use one. It has to rank results sensibly, highlight what
+            matched without breaking on odd input, stay usable without a mouse, and announce itself to
+            assistive tech. Most tutorial versions skip all four.
+          </p>
+
+          <h3>The approach</h3>
+          <p>
+            I kept the logic as small pure functions (rank, highlight) and left all state in one object, so each
+            piece can be read and tested on its own. Rendering happens in a single place, driven by that state.
+          </p>
+
+          <ol class="flow" aria-label="Data flow">
+            <li><b>Input</b>User types; the <code>input</code> event fires.</li>
+            <li><b>Rank</b>Filter and sort the fruit list.</li>
+            <li><b>Render</b>Build the list with DOM nodes.</li>
+            <li><b>Select</b>Click or Enter fills the field.</li>
+          </ol>
+
+          <dl class="facts">
+            <dt>Stack</dt><dd>HTML, CSS, JavaScript (ES2015+)</dd>
+            <dt>Dependencies</dt><dd>None</dd>
+            <dt>Accessibility</dt><dd>ARIA combobox pattern, live status, visible focus</dd>
+            <dt>Concepts</dt><dd>Event delegation, DOM construction, array methods, regex escaping</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="story" id="code" aria-labelledby="code-h">
+      <div class="story-grid">
+        <h2 id="code-h">Decisions worth a look</h2>
+        <div>
+          <h3>Ranking beats plain filtering</h3>
+          <p>Typing “an” should surface Ananas-style prefix matches before “Mango”. Prefix matches go first, then alphabetical.</p>
+          <p class="file">rank()</p>
+<pre><code>const rank = (query) => {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const starts = (name) => name.toLowerCase().startsWith(q);
+
+  return FRUITS
+    .filter((name) => name.toLowerCase().includes(q))
+    .sort((a, b) => starts(b) - starts(a) || a.localeCompare(b));
+};</code></pre>
+
+          <h3>Highlighting without innerHTML</h3>
+          <p>
+            Building nodes with <code>textContent</code> means user input is never parsed as markup, and a regex
+            escape keeps characters like <code>(</code> from crashing the search.
+          </p>
+          <p class="file">highlight()</p>
+<pre><code>const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&amp;");
+
+function highlight(name, query) {
+  const frag = document.createDocumentFragment();
+  const match = new RegExp(escapeRegExp(query.trim()), "i").exec(name);
+  if (!match) return frag.append(name), frag;
+
+  const mark = document.createElement("mark");
+  mark.textContent = match[0];
+  frag.append(
+    name.slice(0, match.index),
+    mark,
+    name.slice(match.index + match[0].length)
+  );
+  return frag;
+}</code></pre>
+
+          <h3>One listener for every suggestion</h3>
+          <p>
+            Suggestions are recreated on every keystroke. Attaching a click handler to the list and reading
+            <code>event.target</code> avoids rebinding hundreds of handlers.
+          </p>
+<pre><code>list.addEventListener("click", (e) => {
+  const item = e.target.closest("[role=option]");
+  if (item) choose(Number(item.dataset.index));
+});</code></pre>
+
+          <h3>Accessible by construction</h3>
+          <p>
+            The input uses the ARIA combobox pattern: <code>aria-activedescendant</code> tracks the highlighted
+            option while focus stays in the field, and a visually hidden live region reports how many
+            results are available.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="story" id="next" aria-labelledby="next-h">
+      <div class="story-grid">
+        <h2 id="next-h">What I’d do next</h2>
+        <div>
+          <p>I stopped where the project was complete, but these are the next steps I would take:</p>
+          <p><b>Fuzzy matching</b> so “aple” still finds Apple, using edit distance with a small cap.</p>
+          <p><b>Unit tests</b> for <code>rank</code> and <code>highlight</code>, which are already pure and easy to test.</p>
+          <p><b>Remote data</b> with debounced requests and <code>AbortController</code> to cancel stale ones.</p>
+          <p><b>What I learned:</b> most of the quality in small UI is in details nobody sees: input edge cases, focus, and announcements.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <h2>Let’s talk</h2>
+    <p>I’m looking for roles where careful front-end work matters.</p>
+    <div class="links">
+      <a href="https://github.com/your-username/fruit-search">Source on GitHub</a>
+      <a href="https://www.linkedin.com/in/your-handle">LinkedIn</a>
+      <a href="mailto:you@example.com">you@example.com</a>
+    </div>
+  </footer>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
