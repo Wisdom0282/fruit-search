@@ -3,14 +3,98 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Case study: an accessible predictive search box built with vanilla JavaScript.">
+<meta name="description" content="Case study: an accessible predictive search box with purposeful motion, built with vanilla JavaScript, CSS and GSAP.">
 <title>Fruit Search: a case study in small, careful UI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap">
 <link rel="stylesheet" href="css/styles.css">
+
+<style>
+  /* ==========================================================
+     Motion layer
+     Rule: everything animated is a progressive enhancement.
+     Without JS, without GSAP, or with reduced motion on,
+     the page is fully readable and the search still works.
+     ========================================================== */
+
+  /* Static states (no motion involved) */
+  .bar a.is-active { color: var(--ink); }
+  .word { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .12em; margin-bottom: -.12em; }
+  .word-inner { display: inline-block; }
+
+  /* Reading progress bar */
+  .progress {
+    position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 50;
+    background: var(--accent); transform: scaleX(0); transform-origin: 0 50%;
+    pointer-events: none;
+  }
+
+  /* Cursor-follow border on the demo card */
+  .demo { position: relative; --mx: 50%; --my: 0%; }
+
+  @media (prefers-reduced-motion: no-preference) {
+
+    /* 1. CSS transitions: small responses to user action */
+    .bar a {
+      background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+      transition: background-size .25s ease, color .2s ease;
+    }
+    .bar a:hover, .bar a.is-active { background-size: 100% 1px; }
+    .theme-btn { transition: transform .15s ease, border-color .2s ease; }
+    .theme-btn:active { transform: scale(.95); }
+    .suggestions li { transition: background-color .12s ease, color .12s ease; }
+
+    /* 2. CSS keyframes: the dropdown opens once, not on every keystroke */
+    .suggestions:not([hidden]) {
+      transform-origin: top center;
+      animation: panel-in .18s cubic-bezier(.2, .8, .2, 1) both;
+    }
+    @keyframes panel-in {
+      from { opacity: 0; transform: translateY(-6px) scale(.98); }
+    }
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .demo::before {
+      content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px;
+      background: radial-gradient(240px circle at var(--mx) var(--my), var(--accent), transparent 70%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      opacity: 0; transition: opacity .3s ease; pointer-events: none;
+    }
+    .demo:hover::before { opacity: 1; }
+  }
+
+  /* 3. Scroll-driven animations: no JavaScript involved.
+        Browsers without support skip this block and show everything. */
+  @supports (animation-timeline: scroll()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .progress {
+        animation: progress-grow linear both;
+        animation-timeline: scroll(root);
+      }
+      @keyframes progress-grow { to { transform: scaleX(1); } }
+    }
+  }
+
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .story .story-grid {
+        animation: section-reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 40%;
+      }
+      @keyframes section-reveal {
+        from { opacity: 0; transform: translateY(32px); }
+      }
+    }
+  }
+</style>
 </head>
 <body>
+
+<div class="progress" aria-hidden="true"></div>
 
 <div class="wrap">
   <header class="bar">
@@ -18,6 +102,7 @@
     <nav aria-label="Primary">
       <a href="#story">Story</a>
       <a href="#code">Code</a>
+      <a href="#motion">Motion</a>
       <a href="#next">Next</a>
       <button class="theme-btn" id="theme" type="button" aria-label="Toggle color theme">Theme</button>
     </nav>
@@ -27,8 +112,9 @@
     <section class="hero" aria-labelledby="title">
       <h1 id="title">Search that answers while you type.</h1>
       <p class="lede">
-        A predictive fruit search built from scratch in vanilla JavaScript. No framework, no libraries,
-        and it works with a keyboard and a screen reader. Try it first, then read how it’s built.
+        A predictive fruit search with plain JavaScript at its core, no framework, and motion added
+        with CSS and GSAP. It works with a keyboard and a screen reader, and it respects reduced motion.
+        Try it first, then read how it’s built.
       </p>
 
       <div class="demo">
@@ -67,6 +153,7 @@
           <p>
             I kept the logic as small pure functions (rank, highlight) and left all state in one object, so each
             piece can be read and tested on its own. Rendering happens in a single place, driven by that state.
+            Motion sits in a separate layer on top, so removing it never breaks the search.
           </p>
 
           <ol class="flow" aria-label="Data flow">
@@ -77,9 +164,10 @@
           </ol>
 
           <dl class="facts">
-            <dt>Stack</dt><dd>HTML, CSS, JavaScript (ES2015+)</dd>
-            <dt>Dependencies</dt><dd>None</dd>
-            <dt>Accessibility</dt><dd>ARIA combobox pattern, live status, visible focus</dd>
+            <dt>Stack</dt><dd>HTML, CSS, JavaScript (ES2015+), GSAP</dd>
+            <dt>Dependencies</dt><dd>GSAP and ScrollTrigger for motion only; the search logic uses none</dd>
+            <dt>Motion</dt><dd>CSS animations, scroll-driven animations, GSAP timelines</dd>
+            <dt>Accessibility</dt><dd>ARIA combobox pattern, live status, visible focus, reduced motion</dd>
             <dt>Concepts</dt><dd>Event delegation, DOM construction, array methods, regex escaping</dd>
           </dl>
         </div>
@@ -146,15 +234,66 @@ function highlight(name, query) {
       </div>
     </section>
 
+    <section class="story" id="motion" aria-labelledby="motion-h">
+      <div class="story-grid">
+        <h2 id="motion-h">Motion and interaction</h2>
+        <div>
+          <p>
+            Motion here has one job: show what changed. The page uses three tools, each for the
+            kind of motion it handles best.
+          </p>
+
+          <dl class="facts">
+            <dt>CSS animations</dt>
+            <dd>The dropdown opening, link underlines, button press, and a border that follows the cursor on the demo card.</dd>
+            <dt>Scroll-driven animations</dt>
+            <dd>The reading-progress bar at the top and the section reveals, using <code>animation-timeline</code> with no JavaScript.</dd>
+            <dt>GSAP and ScrollTrigger</dt>
+            <dd>The hero sequence, the staggered pipeline steps, the active nav link, and the confirmation when you pick a fruit.</dd>
+            <dt>Reduced motion</dt>
+            <dd>Every animation switches off when the visitor’s system asks for less motion.</dd>
+          </dl>
+
+          <h3>Scroll-driven, without JavaScript</h3>
+          <p>
+            The progress bar is tied to scroll position by the browser, so it stays smooth even when the main
+            thread is busy. Browsers without support skip the block and simply show the page.
+          </p>
+          <p class="file">styles</p>
+<pre><code>@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .progress {
+      animation: progress-grow linear both;
+      animation-timeline: scroll(root);
+    }
+    @keyframes progress-grow { to { transform: scaleX(1); } }
+  }
+}</code></pre>
+
+          <h3>GSAP for choreography</h3>
+          <p>
+            CSS is ideal for single effects. When several things must run in sequence, a GSAP timeline is easier
+            to read and adjust. It runs inside <code>gsap.matchMedia()</code>, so reduced-motion visitors never get it.
+          </p>
+<pre><code>gsap.timeline({ defaults: { ease: "power3.out" } })
+  .from(".bar", { y: -16, opacity: 0, duration: 0.6 })
+  .from(".word-inner", { yPercent: 110, duration: 0.9, stagger: 0.08 }, "-=0.3")
+  .from(".lede", { y: 16, opacity: 0, duration: 0.7 }, "-=0.5")
+  .from(".demo", { y: 24, opacity: 0, duration: 0.7 }, "-=0.45");</code></pre>
+        </div>
+      </div>
+    </section>
+
     <section class="story" id="next" aria-labelledby="next-h">
       <div class="story-grid">
         <h2 id="next-h">What I’d do next</h2>
         <div>
           <p>I stopped where the project was complete, but these are the next steps I would take:</p>
+          <p><b>Framer Motion</b> by porting the list to React and using layout animations, so results slide into their new order instead of being replaced.</p>
           <p><b>Fuzzy matching</b> so “aple” still finds Apple, using edit distance with a small cap.</p>
           <p><b>Unit tests</b> for <code>rank</code> and <code>highlight</code>, which are already pure and easy to test.</p>
           <p><b>Remote data</b> with debounced requests and <code>AbortController</code> to cancel stale ones.</p>
-          <p><b>What I learned:</b> most of the quality in small UI is in details nobody sees: input edge cases, focus, and announcements.</p>
+          <p><b>What I learned:</b> most of the quality in small UI is in details nobody sees: input edge cases, focus, announcements, and knowing when not to animate.</p>
         </div>
       </div>
     </section>
@@ -171,7 +310,96 @@ function highlight(name, query) {
   </footer>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
+
+<script>
+  // Motion layer. Runs only if GSAP loaded; the page works without it.
+  (() => {
+    if (!window.gsap || !window.ScrollTrigger) return;
+    gsap.registerPlugin(ScrollTrigger);
+
+    // State, not motion: highlight the nav link for the section in view.
+    document.querySelectorAll("main section[id]").forEach((section) => {
+      const link = document.querySelector(`.bar a[href="#${section.id}"]`);
+      if (!link) return;
+      ScrollTrigger.create({
+        trigger: section,
+        start: "top 40%",
+        end: "bottom 40%",
+        toggleClass: { targets: link, className: "is-active" }
+      });
+    });
+
+    // Split the headline into words so each can rise out of its own mask.
+    function splitTitle() {
+      const title = document.getElementById("title");
+      const text = title.textContent.trim();
+      title.setAttribute("aria-label", text);
+      title.replaceChildren();
+
+      text.split(" ").forEach((word, i, all) => {
+        const outer = document.createElement("span");
+        const inner = document.createElement("span");
+        outer.className = "word";
+        inner.className = "word-inner";
+        outer.setAttribute("aria-hidden", "true");
+        inner.textContent = word;
+        outer.append(inner);
+        title.append(outer);
+        if (i < all.length - 1) title.append(" ");
+      });
+    }
+
+    const motion = gsap.matchMedia();
+
+    motion.add("(prefers-reduced-motion: no-preference)", () => {
+      splitTitle();
+
+      // One orchestrated moment on load.
+      gsap.timeline({ defaults: { ease: "power3.out" } })
+        .from(".bar", { y: -16, opacity: 0, duration: 0.6 })
+        .from(".word-inner", { yPercent: 110, duration: 0.9, stagger: 0.08 }, "-=0.3")
+        .from(".lede", { y: 16, opacity: 0, duration: 0.7 }, "-=0.5")
+        .from(".demo", { y: 24, opacity: 0, duration: 0.7 }, "-=0.45");
+
+      // Pipeline steps arrive in order as they scroll into view.
+      gsap.from(".flow li", {
+        scrollTrigger: { trigger: ".flow", start: "top 85%" },
+        y: 20,
+        opacity: 0,
+        duration: 0.6,
+        stagger: 0.12,
+        ease: "power2.out"
+      });
+
+      // Confirm a selection with a small pop.
+      const picked = document.getElementById("picked");
+      const observer = new MutationObserver(() => {
+        gsap.fromTo(picked,
+          { y: 8, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.4, ease: "back.out(2)" });
+      });
+      observer.observe(picked, { childList: true });
+
+      // Border glow follows the pointer on the demo card.
+      const demo = document.querySelector(".demo");
+      const trackPointer = (e) => {
+        const rect = demo.getBoundingClientRect();
+        demo.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+        demo.style.setProperty("--my", `${e.clientY - rect.top}px`);
+      };
+      demo.addEventListener("pointermove", trackPointer);
+
+      // Clean up if the user switches to reduced motion mid-session.
+      return () => {
+        observer.disconnect();
+        demo.removeEventListener("pointermove", trackPointer);
+      };
+    });
+  })();
+</script>
 </body>
 </html>
